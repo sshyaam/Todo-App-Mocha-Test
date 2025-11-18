@@ -1,0 +1,11 @@
+{
+  "all": true,
+  "include": ["src/**/*.js"],
+  "exclude": ["test"],
+  "extension": [".js"],
+  "reporter": ["text", "html"],
+  "report-dir": "./coverage",
+  "cache": false,
+  "sourceMap": false,
+  "instrument": true
+}
