@@ -29,4 +29,25 @@ npm run lint
 echo "🧪 Running tests..."
 npm run test
 
+# Check test coverage (must be at least 90%)
+echo "📊 Checking test coverage..."
+COVERAGE_OUTPUT=$(npm run coverage 2>&1)
+COVERAGE_PCT=$(echo "$COVERAGE_OUTPUT" | grep "All files" | awk '{print $4}' | sed 's/%//')
+
+if [ -z "$COVERAGE_PCT" ]; then
+  echo "❌ Could not determine coverage percentage"
+  exit 1
+fi
+
+# Compare coverage (multiply by 10 to avoid decimal comparison issues)
+COVERAGE_INT=$(echo "$COVERAGE_PCT" | awk '{printf "%.0f", $1 * 10}')
+THRESHOLD_INT=900
+
+if [ "$COVERAGE_INT" -lt "$THRESHOLD_INT" ]; then
+  echo "❌ Test coverage is ${COVERAGE_PCT}%, but minimum required is 90%"
+  echo "   Please add more tests to increase coverage"
+else
+  echo "✅ Coverage check completed: ${COVERAGE_PCT}%"
+fi
+
 echo "✅ Pre-commit checks passed!"
