@@ -263,4 +263,256 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
     expect(res.status).to.equal(400);
     expect(body.error).to.equal("Invalid ID");
   });
+
+  // --- PUT edge cases ---
+  it("PUT /todos/:id → should return 400 for id <= 0", async () => {
+    const req = new Request("http://localhost/todos/0", {
+      method: "PUT",
+      body: JSON.stringify({ title: "Test" }),
+    });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+    expect(res.status).to.equal(400);
+    expect(body.error).to.equal("Invalid id");
+  });
+
+  it("PUT /todos/:id → should return 400 for negative id", async () => {
+    const req = new Request("http://localhost/todos/-1", {
+      method: "PUT",
+      body: JSON.stringify({ title: "Test" }),
+    });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+    expect(res.status).to.equal(400);
+    expect(body.error).to.equal("Invalid id");
+  });
+
+  it("PUT /todos/:id → should handle database error when checking existence", async () => {
+    sinon.stub(dbLayer, "todoExists").rejects(new Error("DB error"));
+
+    const req = new Request("http://localhost/todos/1", {
+      method: "PUT",
+      body: JSON.stringify({ title: "Test" }),
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(500);
+  });
+
+  it("PUT /todos/:id → should handle database error when updating", async () => {
+    sinon.stub(dbLayer, "todoExists").resolves({
+      results: [{ 1: 1 }],
+    });
+    sinon.stub(dbLayer, "updateTodo").rejects(new Error("Update failed"));
+
+    const req = new Request("http://localhost/todos/1", {
+      method: "PUT",
+      body: JSON.stringify({ title: "Test" }),
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(500);
+  });
+
+  // --- POST edge cases ---
+  it("POST /todos → should handle database error on insert", async () => {
+    sinon.stub(dbLayer, "insertTodo").rejects(new Error("Insert failed"));
+
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "Test Todo" }),
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(500);
+  });
+
+  it("POST /todos → should handle database error on getLatestTodo", async () => {
+    sinon.stub(dbLayer, "insertTodo").resolves({ success: true });
+    sinon.stub(dbLayer, "getLatestTodo").rejects(new Error("Get failed"));
+
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "Test Todo" }),
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(500);
+  });
+
+  it("POST /todos → should handle null description", async () => {
+    sinon.stub(dbLayer, "insertTodo").resolves({ success: true });
+    sinon.stub(dbLayer, "getLatestTodo").resolves({
+      results: [
+        {
+          id: 1,
+          title: "Test Todo",
+          description: null,
+          status: "incomplete",
+        },
+      ],
+    });
+
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "Test Todo" }),
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(201);
+  });
+
+  // --- GET /todos/:id edge cases ---
+  it("GET /todos/:id → should handle database error", async () => {
+    sinon.stub(dbLayer, "getTodoById").rejects(new Error("DB error"));
+
+    const req = new Request("http://localhost/todos/1", { method: "GET" });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(500);
+  });
+
+  // --- DELETE edge cases ---
+  it("DELETE /todos/:id → should handle database error", async () => {
+    sinon.stub(dbLayer, "deleteTodo").rejects(new Error("Delete failed"));
+
+    const req = new Request("http://localhost/todos/1", { method: "DELETE" });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(500);
+  });
+
+  it("DELETE /todos/:id → should handle missing meta property", async () => {
+    sinon.stub(dbLayer, "deleteTodo").resolves({});
+
+    const req = new Request("http://localhost/todos/1", { method: "DELETE" });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+    expect(res.status).to.equal(404);
+    expect(body.error).to.equal("Not found");
+  });
+
+  // --- Catch all route ---
+  it("should return 405 for unsupported route", async () => {
+    const req = new Request("http://localhost/unknown", { method: "GET" });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+    expect(res.status).to.equal(405);
+    expect(body.error).to.equal("Not Found");
+  });
+
+  it("should return 405 for unsupported method on known route", async () => {
+    const req = new Request("http://localhost/todos", { method: "PATCH" });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+    expect(res.status).to.equal(405);
+    expect(body.error).to.equal("Not Found");
+  });
+
+  // --- Error message handling ---
+  it("GET /todos → should return custom error message", async () => {
+    sinon.stub(dbLayer, "getAllTodos").rejects(new Error("Custom DB error"));
+
+    const req = new Request("http://localhost/todos", { method: "GET" });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+
+    expect(res.status).to.equal(500);
+    expect(body.error).to.equal("Custom DB error");
+  });
+
+  it("GET /todos/:id → should return custom error message", async () => {
+    sinon.stub(dbLayer, "getTodoById").rejects(new Error("Custom error"));
+
+    const req = new Request("http://localhost/todos/1", { method: "GET" });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+
+    expect(res.status).to.equal(500);
+    expect(body.error).to.equal("Custom error");
+  });
+
+  it("POST /todos → should return custom error message", async () => {
+    sinon.stub(dbLayer, "insertTodo").rejects(new Error("Custom insert error"));
+
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "Test" }),
+    });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+
+    expect(res.status).to.equal(500);
+    expect(body.error).to.equal("Custom insert error");
+  });
+
+  it("PUT /todos/:id → should return custom error message", async () => {
+    sinon.stub(dbLayer, "todoExists").rejects(new Error("Custom exists error"));
+
+    const req = new Request("http://localhost/todos/1", {
+      method: "PUT",
+      body: JSON.stringify({ title: "Test" }),
+    });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+
+    expect(res.status).to.equal(500);
+    expect(body.error).to.equal("Custom exists error");
+  });
+
+  it("DELETE /todos/:id → should return custom error message", async () => {
+    sinon.stub(dbLayer, "deleteTodo").rejects(new Error("Custom delete error"));
+
+    const req = new Request("http://localhost/todos/1", { method: "DELETE" });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+
+    expect(res.status).to.equal(500);
+    expect(body.error).to.equal("Custom delete error");
+  });
+
+  // --- POST with different status values ---
+  it("POST /todos → should accept custom status", async () => {
+    sinon.stub(dbLayer, "insertTodo").resolves({ success: true });
+    sinon.stub(dbLayer, "getLatestTodo").resolves({
+      results: [
+        {
+          id: 1,
+          title: "Test Todo",
+          description: "Test",
+          status: "complete",
+        },
+      ],
+    });
+
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "Test Todo", status: "complete" }),
+    });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+
+    expect(res.status).to.equal(201);
+    expect(body.status).to.equal("complete");
+  });
+
+  // --- PUT with different status values ---
+  it("PUT /todos/:id → should accept custom status", async () => {
+    sinon.stub(dbLayer, "todoExists").resolves({
+      results: [{ 1: 1 }],
+    });
+    sinon.stub(dbLayer, "updateTodo").resolves({ success: true });
+    sinon.stub(dbLayer, "getTodoById").resolves({
+      results: [
+        {
+          id: 1,
+          title: "Updated",
+          status: "complete",
+        },
+      ],
+    });
+
+    const req = new Request("http://localhost/todos/1", {
+      method: "PUT",
+      body: JSON.stringify({ title: "Updated", status: "complete" }),
+    });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+
+    expect(res.status).to.equal(200);
+    expect(body.status).to.equal("complete");
+  });
 });
