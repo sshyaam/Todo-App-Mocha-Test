@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [20.x]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check npm package consistency
+      run: npm ls --depth=0
+
+    - name: Run npm audit
+      run: npm audit --audit-level=high
+      continue-on-error: true
+
+    - name: Run Knip
+      run: npm run knip
+      continue-on-error: true
+
+    - name: Run ESLint
+      run: npm run lint
+
+    - name: Run tests
+      run: npm run test
+
+    - name: Check test coverage
+      id: coverage
+      run: |
+        COVERAGE_OUTPUT=$(npm run coverage 2>&1)
+        COVERAGE_PCT=$(echo "$COVERAGE_OUTPUT" | grep "All files" | awk '{print $4}' | sed 's/%//')
+        
+        if [ -z "$COVERAGE_PCT" ]; then
+          echo "❌ Could not determine coverage percentage"
+          exit 1
+        fi
+        
+        echo "coverage=$COVERAGE_PCT" >> $GITHUB_OUTPUT
+        echo "📊 Test coverage: ${COVERAGE_PCT}%"
+        
+        # Compare coverage (multiply by 10 to avoid decimal comparison issues)
+        COVERAGE_INT=$(echo "$COVERAGE_PCT" | awk '{printf "%.0f", $1 * 10}')
+        THRESHOLD_INT=900
+        
+        if [ "$COVERAGE_INT" -lt "$THRESHOLD_INT" ]; then
+          echo "❌ Test coverage is ${COVERAGE_PCT}%, but minimum required is 90%"
+          echo "   Please add more tests to increase coverage"
+          exit 1
+        else
+          echo "✅ Coverage check passed: ${COVERAGE_PCT}%"
+        fi
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-report
+        path: coverage/
+        retention-days: 7
+
