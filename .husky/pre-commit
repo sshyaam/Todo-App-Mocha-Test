@@ -1,7 +1,25 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
 echo "🔍 Running pre-commit checks..."
+
+# Check npm package-lock.json consistency
+echo "📦 Checking npm package consistency..."
+if ! npm ls --depth=0 > /dev/null 2>&1; then
+  echo "❌ Dependencies are out of sync"
+  echo "   Run 'npm install' to fix this"
+  exit 1
+fi
+
+# Run npm audit (check for vulnerabilities - warning only, doesn't block)
+echo "🔒 Running npm audit..."
+npm audit --audit-level=high || {
+  echo "⚠️  npm audit found high/critical vulnerabilities (non-blocking)"
+  echo "   Run 'npm audit fix' to attempt automatic fixes"
+}
+
+# Run Knip (find unused files, dependencies, exports, etc.)
+echo "🔍 Running Knip..."
+npm run knip || {
+  echo "⚠️  Knip found unused code/dependencies (non-blocking)"
+}
 
 # Run ESLint
 echo "📝 Running ESLint..."

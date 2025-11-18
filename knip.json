@@ -1,0 +1,11 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/index.js"],
+  "project": ["src/**/*.js", "test/**/*.js"],
+  "ignore": ["coverage/**", "node_modules/**", ".git/**"],
+  "ignoreDependencies": [
+    "@cloudflare/workers-types",
+    "wrangler"
+  ]
+}
+

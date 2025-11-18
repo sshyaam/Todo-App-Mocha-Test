@@ -44,9 +44,11 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
 
   // --- GET /todos ---
   it("GET /todos → should return a list of todos", async () => {
-    sinon.stub(dbLayer, "getTodos").resolves([
-      { id: 1, title: "Test Todo", description: "Mocked todo", status: "incomplete" },
-    ]);
+    sinon.stub(dbLayer, "getAllTodos").resolves({
+      results: [
+        { id: 1, title: "Test Todo", description: "Mocked todo", status: "incomplete" },
+      ],
+    });
 
     const req = new Request("http://localhost/todos", { method: "GET" });
     const res = await app.fetch(req, env);
@@ -58,7 +60,7 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
   });
 
   it("GET /todos → should handle database error", async () => {
-    sinon.stub(dbLayer, "getTodos").rejects(new Error("DB failure"));
+    sinon.stub(dbLayer, "getAllTodos").rejects(new Error("DB failure"));
 
     const req = new Request("http://localhost/todos", { method: "GET" });
     const res = await app.fetch(req, env);
@@ -71,10 +73,14 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
   // --- GET /todos/:id ---
   it("GET /todos/:id → should return a single todo", async () => {
     sinon.stub(dbLayer, "getTodoById").resolves({
-      id: 1,
-      title: "Test Todo",
-      description: "Mocked todo",
-      status: "incomplete",
+      results: [
+        {
+          id: 1,
+          title: "Test Todo",
+          description: "Mocked todo",
+          status: "incomplete",
+        },
+      ],
     });
 
     const req = new Request("http://localhost/todos/1", { method: "GET" });
@@ -86,7 +92,9 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
   });
 
   it("GET /todos/:id → should return 404 if not found", async () => {
-    sinon.stub(dbLayer, "getTodoById").resolves(null);
+    sinon.stub(dbLayer, "getTodoById").resolves({
+      results: [],
+    });
 
     const req = new Request("http://localhost/todos/99", { method: "GET" });
     const res = await app.fetch(req, env);
@@ -106,12 +114,16 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
 
   // --- POST /todos ---
   it("POST /todos → should create a new todo", async () => {
-    sinon.stub(dbLayer, "insertTodo").resolves(1);
+    sinon.stub(dbLayer, "insertTodo").resolves({ success: true });
     sinon.stub(dbLayer, "getLatestTodo").resolves({
-      id: 1,
-      title: "New Todo",
-      description: "Write tests",
-      status: "incomplete",
+      results: [
+        {
+          id: 1,
+          title: "New Todo",
+          description: "Write tests",
+          status: "incomplete",
+        },
+      ],
     });
 
     const req = new Request("http://localhost/todos", {
@@ -158,12 +170,18 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
 
   // --- PUT /todos/:id ---
   it("PUT /todos/:id → should update an existing todo", async () => {
-    sinon.stub(dbLayer, "getTodoById").resolves({ id: 1 });
-    sinon.stub(dbLayer, "updateTodo").resolves(true);
-    sinon.stub(dbLayer, "getTodoById").onSecondCall().resolves({
-      id: 1,
-      title: "Updated Todo",
-      status: "complete",
+    sinon.stub(dbLayer, "todoExists").resolves({
+      results: [{ 1: 1 }], // Non-empty results means todo exists
+    });
+    sinon.stub(dbLayer, "updateTodo").resolves({ success: true });
+    sinon.stub(dbLayer, "getTodoById").resolves({
+      results: [
+        {
+          id: 1,
+          title: "Updated Todo",
+          status: "complete",
+        },
+      ],
     });
 
     const req = new Request("http://localhost/todos/1", {
@@ -179,7 +197,9 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
   });
 
   it("PUT /todos/:id → should return 404 if not found", async () => {
-    sinon.stub(dbLayer, "getTodoById").resolves(null);
+    sinon.stub(dbLayer, "todoExists").resolves({
+      results: [], // Empty results means todo doesn't exist
+    });
 
     const req = new Request("http://localhost/todos/99", {
       method: "PUT",
@@ -207,7 +227,11 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
 
   // --- DELETE /todos/:id ---
   it("DELETE /todos/:id → should delete a todo", async () => {
-    sinon.stub(dbLayer, "deleteTodo").resolves(true);
+    sinon.stub(dbLayer, "deleteTodo").resolves({
+      meta: {
+        changes: 1, // 1 change means todo was deleted
+      },
+    });
 
     const req = new Request("http://localhost/todos/1", { method: "DELETE" });
     const res = await app.fetch(req, env);
@@ -218,7 +242,11 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
   });
 
   it("DELETE /todos/:id → should return 404 if not found", async () => {
-    sinon.stub(dbLayer, "deleteTodo").resolves(false);
+    sinon.stub(dbLayer, "deleteTodo").resolves({
+      meta: {
+        changes: 0, // 0 changes means todo wasn't found
+      },
+    });
 
     const req = new Request("http://localhost/todos/99", { method: "DELETE" });
     const res = await app.fetch(req, env);

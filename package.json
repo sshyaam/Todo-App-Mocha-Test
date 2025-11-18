@@ -11,6 +11,7 @@
 		"coverage": "c8 --reporter=text --reporter=html mocha",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
+		"knip": "knip",
 		"prepare": "husky"
 	},
 	"devDependencies": {
@@ -20,6 +21,7 @@
 		"eslint": "^9.39.1",
 		"globals": "^16.5.0",
 		"husky": "^9.1.7",
+		"knip": "^5.69.1",
 		"wrangler": "^4.46.0"
 	},
 	"dependencies": {
