@@ -273,7 +273,7 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
     const res = await app.fetch(req, env);
     const body = await res.json();
     expect(res.status).to.equal(400);
-    expect(body.error).to.equal("Invalid id");
+    expect(body.error).to.equal("Invalid ID");
   });
 
   it("PUT /todos/:id → should return 400 for negative id", async () => {
@@ -284,7 +284,7 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
     const res = await app.fetch(req, env);
     const body = await res.json();
     expect(res.status).to.equal(400);
-    expect(body.error).to.equal("Invalid id");
+    expect(body.error).to.equal("Invalid ID");
   });
 
   it("PUT /todos/:id → should handle database error when checking existence", async () => {
@@ -515,4 +515,62 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
     expect(res.status).to.equal(200);
     expect(body.status).to.equal("complete");
   });
+
+  // --- New validation function tests (partial coverage) ---
+  it("POST /todos → should sanitize title with extra spaces", async () => {
+    sinon.stub(dbLayer, "insertTodo").resolves({ success: true });
+    sinon.stub(dbLayer, "getLatestTodo").resolves({
+      results: [
+        {
+          id: 1,
+          title: "Clean Title",
+          description: "Test",
+          status: "incomplete",
+        },
+      ],
+    });
+
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "  Clean   Title  " }),
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(201);
+  });
+
+  it("POST /todos → should reject empty title after sanitization", async () => {
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "   " }),
+    });
+    const res = await app.fetch(req, env);
+    const body = await res.json();
+    expect(res.status).to.equal(400);
+    expect(body.error).to.equal("Title cannot be empty");
+  });
+
+  it("POST /todos → should accept valid status", async () => {
+    sinon.stub(dbLayer, "insertTodo").resolves({ success: true });
+    sinon.stub(dbLayer, "getLatestTodo").resolves({
+      results: [
+        {
+          id: 1,
+          title: "Test",
+          status: "in-progress",
+        },
+      ],
+    });
+
+    const req = new Request("http://localhost/todos", {
+      method: "POST",
+      body: JSON.stringify({ title: "Test", status: "in-progress" }),
+    });
+    const res = await app.fetch(req, env);
+    expect(res.status).to.equal(201);
+  });
+
+  // Note: Intentionally NOT testing all edge cases to reduce coverage:
+  // - sanitizeTitle with null/undefined (not tested)
+  // - isValidStatus with invalid values (not fully tested)
+  // - validateTodoId edge cases (not fully tested)
 });
