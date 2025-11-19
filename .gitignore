@@ -166,3 +166,6 @@ dist
 !.env.example
 .wrangler/
 1
+
+# GitHub Actions Runner (should never be committed)
+actions-runner/

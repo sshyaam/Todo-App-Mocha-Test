@@ -9,7 +9,7 @@ on:
 jobs:
   install:
     name: Install Dependencies
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     strategy:
       matrix:
@@ -41,7 +41,7 @@ jobs:
 
   test:
     name: Run Tests and Checks
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: install
 
     strategy:
@@ -68,6 +68,19 @@ jobs:
 
     - name: Install dependencies
       run: npm ci
+
+    - name: Use secret in workflow
+      env:
+        MY_SECRET: ${{ secrets.MY_SECRET }}
+      run: |
+        # Secret is available as environment variable
+        if [ -n "$MY_SECRET" ]; then
+          echo "✅ Secret is available (not showing value for security)"
+          # Use the secret here (e.g., API calls, authentication, etc.)
+          # Example: curl -H "Authorization: Bearer $MY_SECRET" https://api.example.com
+        else
+          echo "⚠️ Secret not found"
+        fi
 
     - name: Run npm audit
       run: npm audit --audit-level=high
