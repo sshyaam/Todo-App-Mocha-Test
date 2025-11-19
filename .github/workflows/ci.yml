@@ -26,10 +26,10 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      run: cd "${{ github.workspace }}" && npm ci
 
     - name: Check npm package consistency
-      run: npm ls --depth=0
+      run: cd "${{ github.workspace }}" && npm ls --depth=0
 
   test:
     name: Run Tests and Checks
@@ -51,12 +51,13 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      run: cd "${{ github.workspace }}" && npm ci
 
     - name: Use secret in workflow
       env:
         MY_SECRET: ${{ secrets.MY_SECRET }}
       run: |
+        cd "${{ github.workspace }}"
         # Secret is available as environment variable
         if [ -n "$MY_SECRET" ]; then
           echo "✅ Secret is available (not showing value for security)"
@@ -67,23 +68,24 @@ jobs:
         fi
 
     - name: Run npm audit
-      run: npm audit --audit-level=high
+      run: cd "${{ github.workspace }}" && npm audit --audit-level=high
       continue-on-error: true
 
     - name: Run Knip
-      run: npm run knip
+      run: cd "${{ github.workspace }}" && npm run knip
       continue-on-error: true
 
     - name: Run ESLint
-      run: npm run lint
+      run: cd "${{ github.workspace }}" && npm run lint
 
     - name: Run tests
-      run: npm run test
+      run: cd "${{ github.workspace }}" && npm run test
       continue-on-error: false
 
     - name: Generate test results
       if: always()
       run: |
+        cd "${{ github.workspace }}"
         # Create test results directory
         mkdir -p test-results
         
@@ -96,6 +98,7 @@ jobs:
     - name: Check test coverage
       id: coverage
       run: |
+        cd "${{ github.workspace }}"
         COVERAGE_OUTPUT=$(npm run coverage 2>&1)
         COVERAGE_PCT=$(echo "$COVERAGE_OUTPUT" | grep "All files" | awk '{print $4}' | sed 's/%//')
         
