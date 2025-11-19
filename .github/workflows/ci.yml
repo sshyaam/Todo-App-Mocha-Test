@@ -24,6 +24,14 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
+    - name: Cache node_modules
+      uses: actions/cache@v4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
     - name: Install dependencies
       run: npm ci
 
@@ -43,6 +51,19 @@ jobs:
 
     - name: Run tests
       run: npm run test
+      continue-on-error: false
+
+    - name: Generate test results
+      if: always()
+      run: |
+        # Create test results directory
+        mkdir -p test-results
+        
+        # Run tests with JSON reporter and save output
+        npm run test -- --reporter json > test-results/test-results.json 2>&1 || true
+        
+        # Also save the regular test output
+        npm run test > test-results/test-output.txt 2>&1 || true
 
     - name: Check test coverage
       id: coverage
@@ -74,7 +95,15 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: coverage-report
+        name: coverage-report-${{ matrix.node-version }}
         path: coverage/
+        retention-days: 7
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.node-version }}
+        path: test-results/
         retention-days: 7
 
