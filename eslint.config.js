@@ -26,8 +26,8 @@ export default [
       },
     },
   },
-  {
-    ignores: ['node_modules/**', 'coverage/**', '.git/**', 'dist/**', 'build/**'],
-  },
+        {
+          ignores: ['node_modules/**', 'coverage/**', '.git/**', 'dist/**', 'build/**', 'actions-runner/**'],
+        },
 ];
 
