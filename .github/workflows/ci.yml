@@ -225,21 +225,6 @@ jobs:
           rm -rf externals
         fi
 
-  check-branch:
-    name: Check if main branch
-    runs-on: ubuntu-latest
-    outputs:
-      is-main: ${{ steps.check.outputs.is-main }}
-    steps:
-      - name: Check if main branch
-        id: check
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "is-main=true" >> $GITHUB_OUTPUT
-          else
-            echo "is-main=false" >> $GITHUB_OUTPUT
-          fi
-
   preview-deploy:
     name: Preview Deployment
     runs-on: ubuntu-latest
@@ -268,25 +253,50 @@ jobs:
 
       - name: Get previous deployment ID
         id: previous-deployment
+        continue-on-error: true
         run: |
           WORKER_NAME="little-shape-647c-preview"
           echo "📋 Getting current deployment ID for rollback..."
-          # Get the current active deployment ID (the one we'll rollback to if new deployment fails)
-          # Use wrangler deployments list and extract the first deployment ID
-          DEPLOYMENTS_OUTPUT=$(npx wrangler deployments list --name "${WORKER_NAME}" 2>/dev/null || echo "")
-          if [ -z "$DEPLOYMENTS_OUTPUT" ]; then
+          
+          # Try to get deployments list with JSON format first
+          DEPLOYMENTS_JSON=$(npx wrangler deployments list --name "${WORKER_NAME}" --format json 2>&1 || echo "")
+          
+          if echo "$DEPLOYMENTS_JSON" | grep -q "\["; then
+            # JSON format available - extract first deployment ID
+            PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_JSON" | grep -oE '"[a-f0-9-]{36}"' | head -n1 | tr -d '"' || echo "")
+            if [ -n "$PREVIOUS_DEPLOYMENT" ]; then
+              echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
+              echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+              exit 0
+            fi
+          fi
+          
+          # Fallback: try text format
+          DEPLOYMENTS_OUTPUT=$(npx wrangler deployments list --name "${WORKER_NAME}" 2>&1 || echo "")
+          echo "Deployments output:"
+          echo "$DEPLOYMENTS_OUTPUT"
+          
+          if [ -z "$DEPLOYMENTS_OUTPUT" ] || echo "$DEPLOYMENTS_OUTPUT" | grep -qi "no deployments\|not found\|error"; then
             echo "⚠️ No previous deployment found (this might be the first deployment)"
             echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Try to extract deployment ID from text output
+          # Format is usually: ID | Version | Created | Author
+          PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_OUTPUT" | grep -E "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}" | head -n1 | awk '{print $1}' || echo "")
+          
+          # Alternative: look for UUID pattern anywhere in the output
+          if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
+            PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_OUTPUT" | grep -oE '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}' | head -n1 || echo "")
+          fi
+          
+          if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
+            echo "⚠️ Could not parse previous deployment ID from output"
+            echo "previous_deployment_id=" >> $GITHUB_OUTPUT
           else
-            # Extract the first deployment ID from the list (format: ID is usually the first column)
-            PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_OUTPUT" | grep -E "^[a-f0-9-]+" | head -n1 | awk '{print $1}' | head -c 36 || echo "")
-            if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
-              echo "⚠️ Could not parse previous deployment ID"
-              echo "previous_deployment_id=" >> $GITHUB_OUTPUT
-            else
-              echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
-              echo "Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
-            fi
+            echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
+            echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -367,9 +377,17 @@ jobs:
           WORKER_NAME="little-shape-647c-preview"
           
           echo "🔄 Health check failed! Rolling back to previous deployment: ${PREVIOUS_DEPLOYMENT}"
+          echo "Worker Name: ${WORKER_NAME}"
+          
+          # Perform rollback
           npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" --name "${WORKER_NAME}" || {
-            echo "❌ Rollback failed!"
-            exit 1
+            echo "❌ Rollback command failed!"
+            echo "Attempting alternative rollback method..."
+            # Try without --name flag
+            npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" || {
+              echo "❌ Alternative rollback also failed!"
+              exit 1
+            }
           }
           echo "✅ Successfully rolled back to deployment: ${PREVIOUS_DEPLOYMENT}"
         env:
@@ -458,7 +476,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: [test, check-branch]
+    needs: test
     timeout-minutes: 10
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
     steps:
@@ -479,25 +497,50 @@ jobs:
 
       - name: Get previous deployment ID
         id: previous-deployment
+        continue-on-error: true
         run: |
           WORKER_NAME="little-shape-647c"
           echo "📋 Getting current deployment ID for rollback..."
-          # Get the current active deployment ID (the one we'll rollback to if new deployment fails)
-          # Use wrangler deployments list and extract the first deployment ID
-          DEPLOYMENTS_OUTPUT=$(npx wrangler deployments list --name "${WORKER_NAME}" 2>/dev/null || echo "")
-          if [ -z "$DEPLOYMENTS_OUTPUT" ]; then
+          
+          # Try to get deployments list with JSON format first
+          DEPLOYMENTS_JSON=$(npx wrangler deployments list --name "${WORKER_NAME}" --format json 2>&1 || echo "")
+          
+          if echo "$DEPLOYMENTS_JSON" | grep -q "\["; then
+            # JSON format available - extract first deployment ID
+            PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_JSON" | grep -oE '"[a-f0-9-]{36}"' | head -n1 | tr -d '"' || echo "")
+            if [ -n "$PREVIOUS_DEPLOYMENT" ]; then
+              echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
+              echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+              exit 0
+            fi
+          fi
+          
+          # Fallback: try text format
+          DEPLOYMENTS_OUTPUT=$(npx wrangler deployments list --name "${WORKER_NAME}" 2>&1 || echo "")
+          echo "Deployments output:"
+          echo "$DEPLOYMENTS_OUTPUT"
+          
+          if [ -z "$DEPLOYMENTS_OUTPUT" ] || echo "$DEPLOYMENTS_OUTPUT" | grep -qi "no deployments\|not found\|error"; then
             echo "⚠️ No previous deployment found (this might be the first deployment)"
             echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          # Try to extract deployment ID from text output
+          # Format is usually: ID | Version | Created | Author
+          PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_OUTPUT" | grep -E "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}" | head -n1 | awk '{print $1}' || echo "")
+          
+          # Alternative: look for UUID pattern anywhere in the output
+          if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
+            PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_OUTPUT" | grep -oE '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}' | head -n1 || echo "")
+          fi
+          
+          if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
+            echo "⚠️ Could not parse previous deployment ID from output"
+            echo "previous_deployment_id=" >> $GITHUB_OUTPUT
           else
-            # Extract the first deployment ID from the list (format: ID is usually the first column)
-            PREVIOUS_DEPLOYMENT=$(echo "$DEPLOYMENTS_OUTPUT" | grep -E "^[a-f0-9-]+" | head -n1 | awk '{print $1}' | head -c 36 || echo "")
-            if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
-              echo "⚠️ Could not parse previous deployment ID"
-              echo "previous_deployment_id=" >> $GITHUB_OUTPUT
-            else
-              echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
-              echo "Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
-            fi
+            echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
+            echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -575,9 +618,17 @@ jobs:
           WORKER_NAME="little-shape-647c"
           
           echo "🔄 Health check failed! Rolling back to previous deployment: ${PREVIOUS_DEPLOYMENT}"
+          echo "Worker Name: ${WORKER_NAME}"
+          
+          # Perform rollback
           npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" --name "${WORKER_NAME}" || {
-            echo "❌ Rollback failed!"
-            exit 1
+            echo "❌ Rollback command failed!"
+            echo "Attempting alternative rollback method..."
+            # Try without --name flag (uses wrangler.jsonc)
+            npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" || {
+              echo "❌ Alternative rollback also failed!"
+              exit 1
+            }
           }
           echo "✅ Successfully rolled back to deployment: ${PREVIOUS_DEPLOYMENT}"
         env:

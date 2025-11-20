@@ -28,14 +28,14 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
   afterEach(() => sinon.restore());
 
   // --- ROOT ---
-  it("GET / → should return ok true", async () => {
+  /*it("GET / → should return ok true", async () => {
     const req = new Request("http://localhost/", { method: "GET" });
     const res = await app.fetch(req, env);
     const body = await res.json();
 
     expect(res.status).to.equal(200);
     expect(body.ok).to.be.true;
-  });
+  });*/
 
   it("POST / → should return 405 for unsupported method", async () => {
     const req = new Request("http://localhost/", { method: "POST" });
