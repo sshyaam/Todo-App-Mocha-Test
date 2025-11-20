@@ -1,0 +1,65 @@
+[2025-11-20 07:07:16Z INFO HostContext] No proxy settings were found based on environmental variables (http_proxy/https_proxy/HTTP_PROXY/HTTPS_PROXY)
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO HostContext] Well known config file 'Credentials': '/Users/shyaam/Desktop/mochaTesting/.credentials'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO HostContext] Well known config file 'Runner': '/Users/shyaam/Desktop/mochaTesting/.runner'
+[2025-11-20 07:07:16Z INFO Listener] Runner is built for OSX (X64) - osx-x64.
+[2025-11-20 07:07:16Z INFO Listener] RuntimeInformation: Darwin 24.6.0 Darwin Kernel Version 24.6.0: Mon Aug 11 21:16:30 PDT 2025; root:xnu-11417.140.69.701.11~1/RELEASE_ARM64_T8132.
+[2025-11-20 07:07:16Z INFO Listener] Version: 2.329.0
+[2025-11-20 07:07:16Z INFO Listener] Commit: c76c59996c8fa32e989164a5a695efb12608ae5a
+[2025-11-20 07:07:16Z INFO Listener] Culture: en-US
+[2025-11-20 07:07:16Z INFO Listener] UI Culture: en-US
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO Listener] Validating directory permissions for: '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO CommandLineParser] Parse
+[2025-11-20 07:07:16Z INFO CommandLineParser] Parsing 1 args
+[2025-11-20 07:07:16Z INFO CommandLineParser] parsing argument
+[2025-11-20 07:07:16Z INFO CommandLineParser] HasArgs: False
+[2025-11-20 07:07:16Z INFO CommandLineParser] Adding Command: run
+[2025-11-20 07:07:16Z INFO Listener] Arguments parsed
+[2025-11-20 07:07:16Z INFO Runner] ExecuteCommand
+[2025-11-20 07:07:16Z INFO ConfigurationStore] currentAssemblyLocation: /Users/shyaam/Desktop/mochaTesting/bin/Runner.Listener.dll
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO ConfigurationStore] binPath: /Users/shyaam/Desktop/mochaTesting/bin
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO ConfigurationStore] RootFolder: /Users/shyaam/Desktop/mochaTesting
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO HostContext] Well known config file 'Runner': '/Users/shyaam/Desktop/mochaTesting/.runner'
+[2025-11-20 07:07:16Z INFO ConfigurationStore] ConfigFilePath: /Users/shyaam/Desktop/mochaTesting/.runner
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO HostContext] Well known config file 'MigratedRunner': '/Users/shyaam/Desktop/mochaTesting/.runner_migrated'
+[2025-11-20 07:07:16Z INFO ConfigurationStore] MigratedConfigFilePath: /Users/shyaam/Desktop/mochaTesting/.runner_migrated
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO HostContext] Well known config file 'Credentials': '/Users/shyaam/Desktop/mochaTesting/.credentials'
+[2025-11-20 07:07:16Z INFO ConfigurationStore] CredFilePath: /Users/shyaam/Desktop/mochaTesting/.credentials
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO HostContext] Well known config file 'MigratedCredentials': '/Users/shyaam/Desktop/mochaTesting/.credentials_migrated'
+[2025-11-20 07:07:16Z INFO ConfigurationStore] MigratedCredFilePath: /Users/shyaam/Desktop/mochaTesting/.credentials_migrated
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:16Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:16Z INFO HostContext] Well known config file 'Service': '/Users/shyaam/Desktop/mochaTesting/.service'
+[2025-11-20 07:07:16Z INFO ConfigurationStore] ServiceConfigFilePath: /Users/shyaam/Desktop/mochaTesting/.service
+[2025-11-20 07:07:16Z INFO CommandSettings] Flag 'help': 'False'
+[2025-11-20 07:07:16Z INFO CommandSettings] Flag 'version': 'False'
+[2025-11-20 07:07:16Z INFO CommandSettings] Flag 'commit': 'False'
+[2025-11-20 07:07:16Z INFO CommandSettings] Flag 'check': 'False'
+[2025-11-20 07:07:16Z INFO CommandSettings] Command 'configure': 'False'
+[2025-11-20 07:07:16Z INFO CommandSettings] Command 'remove': 'False'
+[2025-11-20 07:07:16Z INFO CommandSettings] Command 'warmup': 'False'
+[2025-11-20 07:07:16Z INFO ConfigurationManager] LoadSettings
+[2025-11-20 07:07:16Z INFO ConfigurationStore] IsConfigured()
+[2025-11-20 07:07:16Z INFO ConfigurationStore] IsConfigured: False
+[2025-11-20 07:07:16Z INFO ConfigurationManager] Is configured: False
+[2025-11-20 07:07:16Z ERR  Terminal] WRITE ERROR: An error occurred: Not configured. Run config.(sh/cmd) to configure the runner.
+[2025-11-20 07:07:17Z ERR  Listener] GitHub.Runner.Common.NonRetryableException: Not configured. Run config.(sh/cmd) to configure the runner.
+   at GitHub.Runner.Listener.Configuration.ConfigurationManager.LoadSettings()
+   at GitHub.Runner.Listener.Runner.ExecuteCommand(CommandSettings command)
+   at GitHub.Runner.Listener.Program.MainAsync(IHostContext context, String[] args)

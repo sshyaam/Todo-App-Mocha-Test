@@ -1,0 +1,97 @@
+[2025-11-20 07:07:38Z INFO HostContext] No proxy settings were found based on environmental variables (http_proxy/https_proxy/HTTP_PROXY/HTTPS_PROXY)
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO HostContext] Well known config file 'Credentials': '/Users/shyaam/Desktop/mochaTesting/.credentials'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO HostContext] Well known config file 'Runner': '/Users/shyaam/Desktop/mochaTesting/.runner'
+[2025-11-20 07:07:38Z INFO Listener] Runner is built for OSX (X64) - osx-x64.
+[2025-11-20 07:07:38Z INFO Listener] RuntimeInformation: Darwin 24.6.0 Darwin Kernel Version 24.6.0: Mon Aug 11 21:16:30 PDT 2025; root:xnu-11417.140.69.701.11~1/RELEASE_ARM64_T8132.
+[2025-11-20 07:07:38Z INFO Listener] Version: 2.329.0
+[2025-11-20 07:07:38Z INFO Listener] Commit: c76c59996c8fa32e989164a5a695efb12608ae5a
+[2025-11-20 07:07:38Z INFO Listener] Culture: en-US
+[2025-11-20 07:07:38Z INFO Listener] UI Culture: en-US
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO Listener] Validating directory permissions for: '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO CommandLineParser] Parse
+[2025-11-20 07:07:38Z INFO CommandLineParser] Parsing 5 args
+[2025-11-20 07:07:38Z INFO CommandLineParser] parsing argument
+[2025-11-20 07:07:38Z INFO CommandLineParser] HasArgs: False
+[2025-11-20 07:07:38Z INFO CommandLineParser] Adding Command: configure
+[2025-11-20 07:07:38Z INFO CommandLineParser] parsing argument
+[2025-11-20 07:07:38Z INFO CommandLineParser] HasArgs: True
+[2025-11-20 07:07:38Z INFO CommandLineParser] arg: url
+[2025-11-20 07:07:38Z INFO CommandLineParser] parsing argument
+[2025-11-20 07:07:38Z INFO CommandLineParser] HasArgs: True
+[2025-11-20 07:07:38Z INFO CommandLineParser] Adding option 'url': 'https://github.com/sshyaam/Todo-App-Mocha-Test'
+[2025-11-20 07:07:38Z INFO CommandLineParser] parsing argument
+[2025-11-20 07:07:38Z INFO CommandLineParser] HasArgs: True
+[2025-11-20 07:07:38Z INFO CommandLineParser] arg: token
+[2025-11-20 07:07:38Z INFO CommandLineParser] parsing argument
+[2025-11-20 07:07:38Z INFO CommandLineParser] HasArgs: True
+[2025-11-20 07:07:38Z INFO CommandLineParser] Adding option 'token': '***'
+[2025-11-20 07:07:38Z INFO Listener] Arguments parsed
+[2025-11-20 07:07:38Z INFO Runner] ExecuteCommand
+[2025-11-20 07:07:38Z INFO ConfigurationStore] currentAssemblyLocation: /Users/shyaam/Desktop/mochaTesting/bin/Runner.Listener.dll
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] binPath: /Users/shyaam/Desktop/mochaTesting/bin
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] RootFolder: /Users/shyaam/Desktop/mochaTesting
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO HostContext] Well known config file 'Runner': '/Users/shyaam/Desktop/mochaTesting/.runner'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] ConfigFilePath: /Users/shyaam/Desktop/mochaTesting/.runner
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO HostContext] Well known config file 'MigratedRunner': '/Users/shyaam/Desktop/mochaTesting/.runner_migrated'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] MigratedConfigFilePath: /Users/shyaam/Desktop/mochaTesting/.runner_migrated
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO HostContext] Well known config file 'Credentials': '/Users/shyaam/Desktop/mochaTesting/.credentials'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] CredFilePath: /Users/shyaam/Desktop/mochaTesting/.credentials
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO HostContext] Well known config file 'MigratedCredentials': '/Users/shyaam/Desktop/mochaTesting/.credentials_migrated'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] MigratedCredFilePath: /Users/shyaam/Desktop/mochaTesting/.credentials_migrated
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Bin': '/Users/shyaam/Desktop/mochaTesting/bin'
+[2025-11-20 07:07:38Z INFO HostContext] Well known directory 'Root': '/Users/shyaam/Desktop/mochaTesting'
+[2025-11-20 07:07:38Z INFO HostContext] Well known config file 'Service': '/Users/shyaam/Desktop/mochaTesting/.service'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] ServiceConfigFilePath: /Users/shyaam/Desktop/mochaTesting/.service
+[2025-11-20 07:07:38Z INFO CommandSettings] Flag 'help': 'False'
+[2025-11-20 07:07:38Z INFO CommandSettings] Flag 'version': 'False'
+[2025-11-20 07:07:38Z INFO CommandSettings] Flag 'commit': 'False'
+[2025-11-20 07:07:38Z INFO CommandSettings] Flag 'check': 'False'
+[2025-11-20 07:07:38Z INFO CommandSettings] Command 'configure': 'True'
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: 
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: --------------------------------------------------------------------------------
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: |        ____ _ _   _   _       _          _        _   _                      |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: |       / ___(_) |_| | | |_   _| |__      / \   ___| |_(_) ___  _ __  ___      |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: |      | |  _| | __| |_| | | | | '_ \    / _ \ / __| __| |/ _ \| '_ \/ __|     |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: |      | |_| | | |_|  _  | |_| | |_) |  / ___ \ (__| |_| | (_) | | | \__ \     |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: |       \____|_|\__|_| |_|\__,_|_.__/  /_/   \_\___|\__|_|\___/|_| |_|___/     |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: |                                                                              |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE: |                       
+[2025-11-20 07:07:38Z INFO Terminal] WRITE: Self-hosted runner registration
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE:                         |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: |                                                                              |
+[2025-11-20 07:07:38Z INFO Terminal] WRITE LINE: --------------------------------------------------------------------------------
+[2025-11-20 07:07:38Z INFO ConfigurationManager] ConfigureAsync
+[2025-11-20 07:07:38Z INFO CommandSettings] Flag 'generateServiceConfig': 'False'
+[2025-11-20 07:07:38Z INFO ConfigurationStore] IsConfigured()
+[2025-11-20 07:07:38Z INFO ConfigurationStore] IsConfigured: False
+[2025-11-20 07:07:38Z INFO ConfigurationManager] Is configured: False
+[2025-11-20 07:07:38Z INFO CommandSettings] Arg 'url': 'https://github.com/sshyaam/Todo-App-Mocha-Test'
+[2025-11-20 07:07:38Z INFO CommandSettings] Remove url from Arg dictionary.
+[2025-11-20 07:07:38Z INFO CommandSettings] Arg 'token': '***'
+[2025-11-20 07:07:38Z INFO CommandSettings] Remove token from Arg dictionary.
+[2025-11-20 07:07:42Z ERR  Terminal] WRITE ERROR: Http response code: NotFound from 'POST https://api.github.com/actions/runner-registration' (Request Id: 6D15:143083:37DFBD:46418D:691EBE3D)
+[2025-11-20 07:07:42Z ERR  Terminal] WRITE ERROR: {"message":"Not Found","documentation_url":"https://docs.github.com/rest","status":"404"}
+[2025-11-20 07:07:42Z ERR  Runner] System.Net.Http.HttpRequestException: Response status code does not indicate success: 404 (Not Found).
+   at System.Net.Http.HttpResponseMessage.EnsureSuccessStatusCode()
+   at GitHub.Runner.Listener.Configuration.ConfigurationManager.GetTenantCredential(String githubUrl, String githubToken, String runnerEvent)
+   at GitHub.Runner.Listener.Configuration.ConfigurationManager.ConfigureAsync(CommandSettings command)
+   at GitHub.Runner.Listener.Runner.ExecuteCommand(CommandSettings command)
+[2025-11-20 07:07:42Z ERR  Terminal] WRITE ERROR: Response status code does not indicate success: 404 (Not Found).
+[2025-11-20 07:07:42Z INFO Listener] Runner execution has finished with return code 1
