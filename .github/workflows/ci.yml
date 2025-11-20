@@ -18,6 +18,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Clean up externals directory
+      shell: bash
+      run: |
+        cd "${{ github.workspace }}"
+        if [ -d "externals" ]; then
+          echo "🧹 Removing externals directory to avoid caching large files"
+          rm -rf externals
+        fi
+
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
@@ -36,6 +45,16 @@ jobs:
         cd "${{ github.workspace }}"
         npm ls --depth=0
 
+    - name: Clean up externals directory before cache
+      shell: bash
+      if: always()
+      run: |
+        cd "${{ github.workspace }}"
+        if [ -d "externals" ]; then
+          echo "🧹 Removing externals directory before post-job cache"
+          rm -rf externals
+        fi
+
   test:
     name: Run Tests and Checks
     runs-on: self-hosted
@@ -47,6 +66,15 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Clean up externals directory
+      shell: bash
+      run: |
+        cd "${{ github.workspace }}"
+        if [ -d "externals" ]; then
+          echo "🧹 Removing externals directory to avoid caching large files"
+          rm -rf externals
+        fi
 
     - name: Setup Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
@@ -159,3 +187,13 @@ jobs:
         name: test-results-${{ matrix.node-version }}
         path: test-results/
         retention-days: 7
+
+    - name: Clean up externals directory before cache
+      shell: bash
+      if: always()
+      run: |
+        cd "${{ github.workspace }}"
+        if [ -d "externals" ]; then
+          echo "🧹 Removing externals directory before post-job cache"
+          rm -rf externals
+        fi
