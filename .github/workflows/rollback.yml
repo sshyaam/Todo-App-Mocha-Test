@@ -3,6 +3,13 @@ name: Rollback Deployment
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Environment to rollback'
+        required: true
+        type: choice
+        options:
+          - production
+          - preview
       deployment_id:
         description: 'Cloudflare deployment ID to rollback to'
         required: true
@@ -32,24 +39,53 @@ jobs:
       - name: Verify Wrangler installation
         run: npx wrangler --version
 
+      - name: Set Worker Name
+        id: worker-name
+        run: |
+          if [ "${{ github.event.inputs.environment }}" = "production" ]; then
+            WORKER_NAME="little-shape-647c"
+            WORKER_URL="https://${WORKER_NAME}.shyaamdps.workers.dev"
+          else
+            WORKER_NAME="little-shape-647c-preview"
+            WORKER_URL="https://${WORKER_NAME}.shyaamdps.workers.dev"
+          fi
+          echo "worker-name=${WORKER_NAME}" >> $GITHUB_OUTPUT
+          echo "worker-url=${WORKER_URL}" >> $GITHUB_OUTPUT
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Worker Name: ${WORKER_NAME}"
+          echo "Worker URL: ${WORKER_URL}"
+
+      - name: List recent deployments
+        id: list-deployments
+        run: |
+          WORKER_NAME="${{ steps.worker-name.outputs.worker-name }}"
+          echo "📋 Recent deployments for ${WORKER_NAME}:"
+          npx wrangler deployments list --name "${WORKER_NAME}" || echo "Note: Could not list deployments. You can find deployment IDs in Cloudflare dashboard."
+
       - name: Rollback Deployment
         id: rollback
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: rollback ${{ github.event.inputs.deployment_id }}
+          command: rollback ${{ github.event.inputs.deployment_id }} --name ${{ steps.worker-name.outputs.worker-name }}
         env:
           WRANGLER_SEND_METRICS: false
 
       - name: Create rollback summary
         run: |
           DEPLOYMENT_ID="${{ github.event.inputs.deployment_id }}"
+          ENVIRONMENT="${{ github.event.inputs.environment }}"
+          WORKER_NAME="${{ steps.worker-name.outputs.worker-name }}"
+          WORKER_URL="${{ steps.worker-name.outputs.worker-url }}"
           
           echo "## 🔄 Rollback Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Successfully rolled back to:**" >> $GITHUB_STEP_SUMMARY
-          echo "- **Deployment ID:** \`$DEPLOYMENT_ID\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${ENVIRONMENT}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Worker Name:** \`${WORKER_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Worker URL:** ${WORKER_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment ID:** \`${DEPLOYMENT_ID}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "🚀 Worker has been rolled back to the specified deployment version." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

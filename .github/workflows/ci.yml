@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, master, develop ]
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
     branches: [ main, master, develop ]
 
 permissions:
@@ -244,7 +244,7 @@ jobs:
     name: Preview Deployment
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    if: (github.event_name == 'pull_request' && github.event.action != 'closed') || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     timeout-minutes: 10
     permissions:
       contents: read
@@ -272,14 +272,14 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --name little-shape-647c-preview-pr-${{ github.event.pull_request.number }}
+          command: deploy --name little-shape-647c-preview
         env:
           WRANGLER_SEND_METRICS: false
 
       - name: Get Preview URL
         id: preview-url
         run: |
-          WORKER_NAME="little-shape-647c-preview-pr-${{ github.event.pull_request.number }}"
+          WORKER_NAME="little-shape-647c-preview"
           # Cloudflare Workers URL format: https://<worker-name>.<account-subdomain>.workers.dev
           # We'll construct a URL that users can verify in Cloudflare dashboard
           PREVIEW_URL="https://${WORKER_NAME}.shyaamdps.workers.dev"
@@ -357,7 +357,6 @@ jobs:
             
             const workerName = '${{ steps.preview-url.outputs.worker-name }}';
             const healthStatus = '${{ steps.health-check.outputs.health_status }}';
-            const apiTests = '${{ steps.api-test.outputs.api_tests }}';
             
             let healthBadge = '❌';
             let healthMessage = 'Health check failed';
@@ -366,23 +365,18 @@ jobs:
               healthMessage = 'Health check passed';
             }
             
-            let apiTestMessage = '';
-            if (apiTests === 'completed') {
-              apiTestMessage = '\n\n**API Tests:** ✅ Completed';
-            }
-            
             const commentBody = `## 🚀 Preview Deployment
             
-            Your changes have been deployed to a preview Worker!
+            Your changes have been deployed to the shared preview environment!
             
             **Worker Name:** \`${workerName}\`
             **Preview URL:** ${previewUrl}
-            **Health Check:** ${healthBadge} ${healthMessage}${apiTestMessage}
+            **Health Check:** ${healthBadge} ${healthMessage}
             
-            > **Note:** The preview URL may take a few minutes to become active. You can also find it in your [Cloudflare Workers dashboard](https://dash.cloudflare.com/).
+            > **Note:** This is a shared preview environment that is updated with each PR. The preview URL may take a few minutes to become active. You can also find it in your [Cloudflare Workers dashboard](https://dash.cloudflare.com/).
             
             This preview will be automatically updated when you push new commits to this PR.
-            The preview Worker will be deleted when this PR is closed or merged.
+            The preview environment is shared across all PRs and will not be deleted.
             
             ---
             *Deployed by GitHub Actions*`;
@@ -434,55 +428,75 @@ jobs:
           command: deploy
           workingDirectory: .
 
-  cleanup-preview:
-    name: Cleanup Preview Deployment
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && github.event.action == 'closed'
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Get Production URL
+        id: production-url
+        run: |
+          WORKER_NAME="little-shape-647c"
+          # Cloudflare Workers URL format: https://<worker-name>.<account-subdomain>.workers.dev
+          PRODUCTION_URL="https://${WORKER_NAME}.shyaamdps.workers.dev"
+          echo "url=${PRODUCTION_URL}" >> $GITHUB_OUTPUT
+          echo "worker-name=${WORKER_NAME}" >> $GITHUB_OUTPUT
+          echo "Production URL: ${PRODUCTION_URL}"
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.x'
-          cache: 'npm'
+      - name: Wait for deployment to propagate
+        run: |
+          echo "⏳ Waiting 10 seconds for deployment to propagate..."
+          sleep 10
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Delete Preview Worker
-        uses: cloudflare/wrangler-action@v3
-        continue-on-error: true
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: delete --name little-shape-647c-preview-pr-${{ github.event.pull_request.number }}
-        env:
-          WRANGLER_SEND_METRICS: false
-
-      - name: Comment PR about cleanup
-        uses: actions/github-script@v7
-        if: github.event_name == 'pull_request'
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const prNumber = context.payload.pull_request.number;
-            const workerName = `little-shape-647c-preview-pr-${prNumber}`;
+      - name: Health check - Root endpoint
+        id: health-check
+        run: |
+          PRODUCTION_URL="${{ steps.production-url.outputs.url }}"
+          echo "🔍 Checking health endpoint: ${PRODUCTION_URL}/"
+          
+          MAX_RETRIES=5
+          RETRY_DELAY=5
+          HEALTH_STATUS="failed"
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" "${PRODUCTION_URL}/" || echo -e "\n000")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
             
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: `## 🧹 Preview Cleanup
+            if [ "$HTTP_CODE" = "200" ]; then
+              if echo "$BODY" | grep -q '"ok"'; then
+                echo "✅ Health check passed!"
+                echo "Response: $BODY"
+                HEALTH_STATUS="passed"
+                break
+              else
+                echo "⚠️ Got 200 but response doesn't contain 'ok': $BODY"
+              fi
+            else
+              echo "❌ Health check failed with HTTP $HTTP_CODE"
+              echo "Response: $BODY"
+            fi
             
-            The preview Worker \`${workerName}\` has been deleted.
-            
-            ---
-            *Cleaned up by GitHub Actions*`
-            });
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Retrying in ${RETRY_DELAY} seconds..."
+              sleep $RETRY_DELAY
+            fi
+          done
+          
+          echo "health_status=${HEALTH_STATUS}" >> $GITHUB_OUTPUT
+          if [ "$HEALTH_STATUS" != "passed" ]; then
+            echo "❌ Health check failed after $MAX_RETRIES attempts"
+            exit 1
+          fi
+
+      - name: Deployment summary
+        run: |
+          PRODUCTION_URL="${{ steps.production-url.outputs.url }}"
+          WORKER_NAME="${{ steps.production-url.outputs.worker-name }}"
+          HEALTH_STATUS="${{ steps.health-check.outputs.health_status }}"
+          
+          echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Worker Name:** \`${WORKER_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production URL:** ${PRODUCTION_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health Check:** $([ "$HEALTH_STATUS" = "passed" ] && echo '✅ Passed' || echo '❌ Failed')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Worker is live and healthy!**" >> $GITHUB_STEP_SUMMARY
