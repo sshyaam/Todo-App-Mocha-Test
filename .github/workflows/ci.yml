@@ -12,7 +12,7 @@ jobs:
     runs-on: self-hosted
     defaults:
       run:
-        working-directory: ${{ github.workspace }}
+        working-directory: "${{ github.workspace }}"
 
     strategy:
       matrix:
@@ -29,10 +29,10 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      run: cd "${{ github.workspace }}" && npm ci
 
     - name: Check npm package consistency
-      run: npm ls --depth=0
+      run: cd "${{ github.workspace }}" && npm ls --depth=0
 
   test:
     name: Run Tests and Checks
@@ -40,7 +40,7 @@ jobs:
     needs: install
     defaults:
       run:
-        working-directory: ${{ github.workspace }}
+        working-directory: "${{ github.workspace }}"
 
     strategy:
       matrix:
@@ -57,7 +57,7 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: npm ci
+      run: cd "${{ github.workspace }}" && npm ci
 
     - name: Use secret in workflow
       env:
