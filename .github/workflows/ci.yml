@@ -27,15 +27,13 @@ jobs:
     - name: Install dependencies
       shell: bash
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         npm ci
 
     - name: Check npm package consistency
       shell: bash
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         npm ls --depth=0
 
   test:
@@ -59,8 +57,7 @@ jobs:
     - name: Install dependencies
       shell: bash
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         npm ci
 
     - name: Use secret in workflow
@@ -68,8 +65,7 @@ jobs:
       env:
         MY_SECRET: ${{ secrets.MY_SECRET }}
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         # Secret is available as environment variable
         if [ -n "$MY_SECRET" ]; then
           echo "✅ Secret is available (not showing value for security)"
@@ -83,39 +79,34 @@ jobs:
       shell: bash
       continue-on-error: true
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         npm audit --audit-level=high
 
     - name: Run Knip
       shell: bash
       continue-on-error: true
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         npm run knip
 
     - name: Run ESLint
       shell: bash
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         npm run lint
 
     - name: Run tests
       shell: bash
       continue-on-error: false
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         npm run test
 
     - name: Generate test results
       shell: bash
       if: always()
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         # Create test results directory
         mkdir -p test-results
         
@@ -129,8 +120,7 @@ jobs:
       id: coverage
       shell: bash
       run: |
-        WORKSPACE="${{ github.workspace }}"
-        cd "$WORKSPACE"
+        cd "${{ github.workspace }}"
         COVERAGE_OUTPUT=$(npm run coverage 2>&1)
         COVERAGE_PCT=$(echo "$COVERAGE_OUTPUT" | grep "All files" | awk '{print $4}' | sed 's/%//')
         
