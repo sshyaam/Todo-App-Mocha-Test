@@ -1,6 +1,6 @@
 // src/index.js
 import { json, Router } from "itty-router";
-import * as db from '../src/db.js';
+import * as db from './db.js';
 
 export const dbLayer = { ...db };
 
@@ -309,8 +309,16 @@ router.all("*", () =>
   json({ error: "Not Found" }, { status: HTTP_STATUS.METHOD_NOT_ALLOWED })
 );
 
-export const app = {
-  fetch: (request, env, ctx) => router.fetch(request, env, ctx),
+/**
+ * Cloudflare Workers entry point
+ * @param {Request} request - Incoming request
+ * @param {Object} env - Environment variables and bindings (includes DB)
+ * @param {Object} ctx - Execution context
+ * @returns {Promise<Response>} Response object
+ */
+export default {
+  async fetch(request, env, ctx) {
+    // Pass env to router so it can access DB binding
+    return router.fetch(request, env, ctx);
+  },
 };
-
-export default app;

@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import sinon from "sinon";
-import { app, dbLayer } from "../src/index.js";
+import app from "../src/index.js";
+import { dbLayer } from "../src/index.js";
 
 describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
   let env;
