@@ -3,8 +3,8 @@ name: Rollback Deployment
 on:
   workflow_dispatch:
     inputs:
-      commit_sha:
-        description: 'Commit SHA to rollback to'
+      deployment_id:
+        description: 'Cloudflare deployment ID to rollback to'
         required: true
         type: string
 
@@ -13,41 +13,12 @@ permissions:
 
 jobs:
   rollback:
-    name: Rollback to Previous Version
+    name: Rollback to Previous Deployment
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Validate commit exists
-        id: validate-commit
-        run: |
-          COMMIT_SHA="${{ github.event.inputs.commit_sha }}"
-          if ! git cat-file -e "$COMMIT_SHA^{commit}" 2>/dev/null; then
-            echo "❌ Commit $COMMIT_SHA not found in repository"
-            exit 1
-          fi
-          echo "✅ Commit $COMMIT_SHA found"
-          echo "commit=$COMMIT_SHA" >> $GITHUB_OUTPUT
-
-      - name: Checkout rollback commit
-        run: |
-          COMMIT_SHA="${{ github.event.inputs.commit_sha }}"
-          echo "Checking out commit: $COMMIT_SHA"
-          git checkout "$COMMIT_SHA"
-
-      - name: Show commit info
-        run: |
-          COMMIT_SHA="${{ github.event.inputs.commit_sha }}"
-          echo "📋 Rolling back to commit: $COMMIT_SHA"
-          echo "📝 Commit message:"
-          git log -1 --format="%B" "$COMMIT_SHA"
-          echo ""
-          echo "👤 Author: $(git log -1 --format='%an <%ae>' "$COMMIT_SHA")"
-          echo "📅 Date: $(git log -1 --format='%ad' --date=format:'%Y-%m-%d %H:%M:%S' "$COMMIT_SHA")"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -61,28 +32,32 @@ jobs:
       - name: Verify Wrangler installation
         run: npx wrangler --version
 
+      - name: List recent deployments
+        id: list-deployments
+        run: |
+          echo "📋 Recent deployments:"
+          npx wrangler deployments list || echo "Note: Could not list deployments. You can find deployment IDs in Cloudflare dashboard."
+
       - name: Rollback Deployment
+        id: rollback
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
-          workingDirectory: .
+          command: rollback ${{ github.event.inputs.deployment_id }}
+        env:
+          WRANGLER_SEND_METRICS: false
 
       - name: Create rollback summary
         run: |
-          COMMIT_SHA="${{ github.event.inputs.commit_sha }}"
-          COMMIT_MSG=$(git log -1 --format="%s" "$COMMIT_SHA")
-          COMMIT_AUTHOR=$(git log -1 --format="%an" "$COMMIT_SHA")
-          COMMIT_DATE=$(git log -1 --format="%ad" --date=format:'%Y-%m-%d %H:%M:%S' "$COMMIT_SHA")
+          DEPLOYMENT_ID="${{ github.event.inputs.deployment_id }}"
           
           echo "## 🔄 Rollback Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "✅ **Successfully rolled back to:**" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** \`$COMMIT_SHA\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Message:** $COMMIT_MSG" >> $GITHUB_STEP_SUMMARY
-          echo "- **Author:** $COMMIT_AUTHOR" >> $GITHUB_STEP_SUMMARY
-          echo "- **Date:** $COMMIT_DATE" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployment ID:** \`$DEPLOYMENT_ID\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "🚀 Worker has been deployed with the rollback version." >> $GITHUB_STEP_SUMMARY
+          echo "🚀 Worker has been rolled back to the specified deployment version." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note:** This rollback uses Cloudflare's native rollback feature, which preserves all bindings and configurations from that deployment." >> $GITHUB_STEP_SUMMARY
 
