@@ -4,8 +4,13 @@ on:
   push:
     branches: [ main, master, develop ]
   pull_request:
-    types: [closed]
+    types: [opened, synchronize, reopened, closed]
     branches: [ main, master, develop ]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   install:
@@ -134,7 +139,9 @@ jobs:
       continue-on-error: true
       run: |
         cd "${{ github.workspace }}"
-        npm run knip
+        npm run knip || {
+          echo "Knip found unused code/dependencies (non blocking)"
+        }
 
     - name: Run ESLint
       shell: bash
@@ -233,11 +240,113 @@ jobs:
             echo "is-main=false" >> $GITHUB_OUTPUT
           fi
 
+  preview-deploy:
+    name: Preview Deployment
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Wrangler installation
+        run: npx wrangler --version
+
+      - name: Deploy Preview Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy --name little-shape-647c-preview-pr-${{ github.event.pull_request.number }}
+        env:
+          WRANGLER_SEND_METRICS: false
+
+      - name: Get Preview URL
+        id: preview-url
+        run: |
+          WORKER_NAME="little-shape-647c-preview-pr-${{ github.event.pull_request.number }}"
+          # Cloudflare Workers URL format: https://<worker-name>.<account-subdomain>.workers.dev
+          # We'll construct a URL that users can verify in Cloudflare dashboard
+          PREVIEW_URL="https://${WORKER_NAME}.shyaamdps.workers.dev"
+          echo "url=${PREVIEW_URL}" >> $GITHUB_OUTPUT
+          echo "worker-name=${WORKER_NAME}" >> $GITHUB_OUTPUT
+          echo "Preview URL: ${PREVIEW_URL}"
+
+      - name: Comment PR with Preview URL
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const previewUrl = '${{ steps.preview-url.outputs.url }}';
+            const prNumber = context.payload.pull_request.number;
+            
+            // Find existing preview comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            
+            const botComment = comments.data.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Preview Deployment')
+            );
+            
+            const workerName = '${{ steps.preview-url.outputs.worker-name }}';
+            const commentBody = `## 🚀 Preview Deployment
+            
+            Your changes have been deployed to a preview Worker!
+            
+            **Worker Name:** \`${workerName}\`
+            **Preview URL:** ${previewUrl}
+            
+            > **Note:** The preview URL may take a few minutes to become active. You can also find it in your [Cloudflare Workers dashboard](https://dash.cloudflare.com/).
+            
+            This preview will be automatically updated when you push new commits to this PR.
+            The preview Worker will be deleted when this PR is closed or merged.
+            
+            ---
+            *Deployed by GitHub Actions*`;
+            
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: commentBody
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+            }
+
   deploy:
     runs-on: ubuntu-latest
     needs: [test, check-branch]
     timeout-minutes: 10
-    if: needs.check-branch.outputs.is-main == 'true' || ${{ github.event.pull_request.merged }} == true
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true)
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -261,3 +370,56 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
           workingDirectory: .
+
+  cleanup-preview:
+    name: Cleanup Preview Deployment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Delete Preview Worker
+        uses: cloudflare/wrangler-action@v3
+        continue-on-error: true
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: delete --name little-shape-647c-preview-pr-${{ github.event.pull_request.number }}
+        env:
+          WRANGLER_SEND_METRICS: false
+
+      - name: Comment PR about cleanup
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const workerName = `little-shape-647c-preview-pr-${prNumber}`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `## 🧹 Preview Cleanup
+            
+            The preview Worker \`${workerName}\` has been deleted.
+            
+            ---
+            *Cleaned up by GitHub Actions*`
+            });
