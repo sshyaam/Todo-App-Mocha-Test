@@ -175,6 +175,7 @@ jobs:
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4
       if: always()
+      continue-on-error: true
       with:
         name: coverage-report-${{ matrix.node-version }}
         path: coverage/
