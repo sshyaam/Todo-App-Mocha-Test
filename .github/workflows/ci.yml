@@ -8,7 +8,7 @@ on:
 
 jobs:
   install:
-    name: Install Dependencies
+    name: Install Dependencies and check packages
     runs-on: self-hosted
     strategy:
       matrix:
