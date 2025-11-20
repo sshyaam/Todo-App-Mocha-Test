@@ -13,67 +13,9 @@ permissions:
   issues: write
 
 jobs:
-  install:
-    name: Install Dependencies and then check
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [20.x]
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Clean up externals directory
-      shell: bash
-      run: |
-        cd "${{ github.workspace }}"
-        if [ -d "externals" ]; then
-          echo "🧹 Removing externals directory to avoid caching large files"
-          rm -rf externals
-        fi
-
-    - name: Setup Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-
-    - name: Cache node_modules
-      uses: actions/cache@v4
-      id: node-modules-cache
-      with:
-        path: node_modules
-        key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-node-${{ matrix.node-version }}-
-
-    - name: Install dependencies
-      shell: bash
-      run: |
-        cd "${{ github.workspace }}"
-        npm ci
-
-    - name: Check npm package consistency
-      shell: bash
-      run: |
-        cd "${{ github.workspace }}"
-        npm ls --depth=0
-
-    - name: Clean up externals directory before cache
-      shell: bash
-      if: always()
-      run: |
-        cd "${{ github.workspace }}"
-        if [ -d "externals" ]; then
-          echo "🧹 Removing externals directory before post-job cache"
-          rm -rf externals
-        fi
-
   test:
     name: Run Tests and Checks
     runs-on: ubuntu-latest
-    needs: install
     strategy:
       matrix:
         node-version: [20.x]
@@ -111,21 +53,6 @@ jobs:
       run: |
         cd "${{ github.workspace }}"
         npm ci
-
-    - name: Use secret in workflow
-      shell: bash
-      env:
-        MY_SECRET: ${{ secrets.MY_SECRET }}
-      run: |
-        cd "${{ github.workspace }}"
-        # Secret is available as environment variable
-        if [ -n "$MY_SECRET" ]; then
-          echo "✅ Secret is available (not showing value for security)"
-          # Use the secret here (e.g., API calls, authentication, etc.)
-          # Example: curl -H "Authorization: Bearer $MY_SECRET" https://api.example.com
-        else
-          echo "⚠️ Secret not found"
-        fi
 
     - name: Run npm audit
       shell: bash
@@ -267,6 +194,8 @@ jobs:
             if [ -n "$PREVIOUS_DEPLOYMENT" ]; then
               echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
               echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+              # Save to file for rollback job
+              echo "${PREVIOUS_DEPLOYMENT}" > previous_deployment_id.txt
               exit 0
             fi
           fi
@@ -279,6 +208,7 @@ jobs:
           if [ -z "$DEPLOYMENTS_OUTPUT" ] || echo "$DEPLOYMENTS_OUTPUT" | grep -qi "no deployments\|not found\|error"; then
             echo "⚠️ No previous deployment found (this might be the first deployment)"
             echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            echo "" > previous_deployment_id.txt
             exit 0
           fi
           
@@ -294,13 +224,23 @@ jobs:
           if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
             echo "⚠️ Could not parse previous deployment ID from output"
             echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            echo "" > previous_deployment_id.txt
           else
             echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
             echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+            echo "${PREVIOUS_DEPLOYMENT}" > previous_deployment_id.txt
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Upload previous deployment ID
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-previous-deployment-id
+          path: previous_deployment_id.txt
+          retention-days: 1
 
       - name: Deploy Preview Worker
         id: deploy
@@ -335,7 +275,7 @@ jobs:
           PREVIEW_URL="${{ steps.preview-url.outputs.url }}"
           echo "🔍 Checking health endpoint: ${PREVIEW_URL}/"
           
-          MAX_RETRIES=5
+          MAX_RETRIES=3
           RETRY_DELAY=5
           HEALTH_STATUS="failed"
           
@@ -368,38 +308,8 @@ jobs:
           echo "health_status=${HEALTH_STATUS}" >> $GITHUB_OUTPUT
           if [ "$HEALTH_STATUS" != "passed" ]; then
             echo "❌ Health check failed after $MAX_RETRIES attempts"
+            exit 1
           fi
-
-      - name: Rollback Preview on Health Check Failure
-        if: steps.health-check.outputs.health_status != 'passed' && steps.previous-deployment.outputs.previous_deployment_id != ''
-        run: |
-          PREVIOUS_DEPLOYMENT="${{ steps.previous-deployment.outputs.previous_deployment_id }}"
-          WORKER_NAME="little-shape-647c-preview"
-          
-          echo "🔄 Health check failed! Rolling back to previous deployment: ${PREVIOUS_DEPLOYMENT}"
-          echo "Worker Name: ${WORKER_NAME}"
-          
-          # Perform rollback
-          npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" --name "${WORKER_NAME}" || {
-            echo "❌ Rollback command failed!"
-            echo "Attempting alternative rollback method..."
-            # Try without --name flag
-            npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" || {
-              echo "❌ Alternative rollback also failed!"
-              exit 1
-            }
-          }
-          echo "✅ Successfully rolled back to deployment: ${PREVIOUS_DEPLOYMENT}"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WRANGLER_SEND_METRICS: false
-
-      - name: Fail if health check failed and no rollback possible
-        if: steps.health-check.outputs.health_status != 'passed' && steps.previous-deployment.outputs.previous_deployment_id == ''
-        run: |
-          echo "❌ Health check failed and no previous deployment to rollback to!"
-          exit 1
           
       - name: Comment PR with Preview URL
         uses: actions/github-script@v7
@@ -424,29 +334,21 @@ jobs:
             
             const workerName = '${{ steps.preview-url.outputs.worker-name }}';
             const healthStatus = '${{ steps.health-check.outputs.health_status }}';
-            const previousDeployment = '${{ steps.previous-deployment.outputs.previous_deployment_id }}';
-            const wasRolledBack = healthStatus !== 'passed' && previousDeployment !== '';
             
-            let healthBadge = '❌';
-            let healthMessage = 'Health check failed';
-            let rollbackMessage = '';
-            if (healthStatus === 'passed') {
-              healthBadge = '✅';
-              healthMessage = 'Health check passed';
-            } else if (wasRolledBack) {
-              healthMessage = 'Health check failed - automatically rolled back to previous deployment';
-              rollbackMessage = `\n\n⚠️ **Automatic Rollback:** The deployment was rolled back to deployment ID \`${previousDeployment}\` due to health check failure.`;
-            } else {
-              healthMessage = 'Health check failed - no previous deployment to rollback to';
+            let healthBadge = '✅';
+            let healthMessage = 'Health check passed';
+            if (healthStatus !== 'passed') {
+              healthBadge = '❌';
+              healthMessage = 'Health check failed - rollback job will handle it';
             }
             
             const commentBody = `## 🚀 Preview Deployment
             
-            ${wasRolledBack ? '⚠️ **Deployment failed health check and was automatically rolled back.**' : 'Your changes have been deployed to the shared preview environment!'}
+            Your changes have been deployed to the shared preview environment!
             
             **Worker Name:** \`${workerName}\`
             **Preview URL:** ${previewUrl}
-            **Health Check:** ${healthBadge} ${healthMessage}${rollbackMessage}
+            **Health Check:** ${healthBadge} ${healthMessage}
             
             > **Note:** This is a shared preview environment that is updated with each PR. The preview URL may take a few minutes to become active. You can also find it in your [Cloudflare Workers dashboard](https://dash.cloudflare.com/).
             
@@ -473,6 +375,105 @@ jobs:
                 body: commentBody
               });
             }
+
+  preview-rollback:
+    name: Rollback Preview Deployment
+    runs-on: ubuntu-latest
+    needs: preview-deploy
+    if: failure() && (github.event_name == 'pull_request' && github.event.action != 'closed')
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download previous deployment ID
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-previous-deployment-id
+          path: .
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Wrangler installation
+        run: npx wrangler --version
+
+      - name: Read previous deployment ID
+        id: read-deployment-id
+        run: |
+          if [ -f previous_deployment_id.txt ]; then
+            PREVIOUS_DEPLOYMENT=$(cat previous_deployment_id.txt | tr -d '\n' || echo "")
+            if [ -n "$PREVIOUS_DEPLOYMENT" ]; then
+              echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
+              echo "✅ Found previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+            else
+              echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+              echo "⚠️ Previous deployment ID file is empty"
+            fi
+          else
+            echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            echo "⚠️ Previous deployment ID file not found"
+          fi
+
+      - name: Rollback Preview Deployment
+        if: steps.read-deployment-id.outputs.previous_deployment_id != ''
+        run: |
+          PREVIOUS_DEPLOYMENT="${{ steps.read-deployment-id.outputs.previous_deployment_id }}"
+          WORKER_NAME="little-shape-647c-preview"
+          
+          echo "🔄 Rolling back preview deployment to: ${PREVIOUS_DEPLOYMENT}"
+          echo "Worker Name: ${WORKER_NAME}"
+          
+          # Perform rollback
+          npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" --name "${WORKER_NAME}" || {
+            echo "❌ Rollback command failed!"
+            echo "Attempting alternative rollback method..."
+            # Try without --name flag
+            npx wrangler rollback "${PREVIOUS_DEPLOYMENT}" || {
+              echo "❌ Alternative rollback also failed!"
+              exit 1
+            }
+          }
+          echo "✅ Successfully rolled back to deployment: ${PREVIOUS_DEPLOYMENT}"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: false
+
+      - name: Comment PR about rollback
+        if: steps.read-deployment-id.outputs.previous_deployment_id != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const previousDeployment = '${{ steps.read-deployment-id.outputs.previous_deployment_id }}';
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `## 🔄 Preview Rollback
+            
+            ⚠️ **Deployment failed health check and was automatically rolled back.**
+            
+            **Rolled back to deployment ID:** \`${previousDeployment}\`
+            
+            The preview environment has been restored to the previous working version.
+            
+            ---
+            *Rolled back by GitHub Actions*`
+            });
 
   deploy:
     runs-on: ubuntu-latest
@@ -511,6 +512,8 @@ jobs:
             if [ -n "$PREVIOUS_DEPLOYMENT" ]; then
               echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
               echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+              # Save to file for rollback job
+              echo "${PREVIOUS_DEPLOYMENT}" > previous_deployment_id.txt
               exit 0
             fi
           fi
@@ -523,6 +526,7 @@ jobs:
           if [ -z "$DEPLOYMENTS_OUTPUT" ] || echo "$DEPLOYMENTS_OUTPUT" | grep -qi "no deployments\|not found\|error"; then
             echo "⚠️ No previous deployment found (this might be the first deployment)"
             echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            echo "" > previous_deployment_id.txt
             exit 0
           fi
           
@@ -538,13 +542,23 @@ jobs:
           if [ -z "$PREVIOUS_DEPLOYMENT" ]; then
             echo "⚠️ Could not parse previous deployment ID from output"
             echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            echo "" > previous_deployment_id.txt
           else
             echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
             echo "✅ Previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+            echo "${PREVIOUS_DEPLOYMENT}" > previous_deployment_id.txt
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Upload previous deployment ID
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-previous-deployment-id
+          path: previous_deployment_id.txt
+          retention-days: 1
 
       - name: Build & Deploy Worker
         uses: cloudflare/wrangler-action@v3
@@ -609,15 +623,78 @@ jobs:
           echo "health_status=${HEALTH_STATUS}" >> $GITHUB_OUTPUT
           if [ "$HEALTH_STATUS" != "passed" ]; then
             echo "❌ Health check failed after $MAX_RETRIES attempts"
+            exit 1
           fi
 
-      - name: Rollback Production on Health Check Failure
-        if: steps.health-check.outputs.health_status != 'passed' && steps.previous-deployment.outputs.previous_deployment_id != ''
+      - name: Deployment summary
+        if: success()
         run: |
-          PREVIOUS_DEPLOYMENT="${{ steps.previous-deployment.outputs.previous_deployment_id }}"
+          PRODUCTION_URL="${{ steps.production-url.outputs.url }}"
+          WORKER_NAME="${{ steps.production-url.outputs.worker-name }}"
+          HEALTH_STATUS="${{ steps.health-check.outputs.health_status }}"
+          
+          echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Worker Name:** \`${WORKER_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production URL:** ${PRODUCTION_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health Check:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Worker is live and healthy!**" >> $GITHUB_STEP_SUMMARY
+
+  production-rollback:
+    name: Rollback Production Deployment
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: failure()
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download previous deployment ID
+        uses: actions/download-artifact@v4
+        with:
+          name: production-previous-deployment-id
+          path: .
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Wrangler installation
+        run: npx wrangler --version
+
+      - name: Read previous deployment ID
+        id: read-deployment-id
+        run: |
+          if [ -f previous_deployment_id.txt ]; then
+            PREVIOUS_DEPLOYMENT=$(cat previous_deployment_id.txt | tr -d '\n' || echo "")
+            if [ -n "$PREVIOUS_DEPLOYMENT" ]; then
+              echo "previous_deployment_id=${PREVIOUS_DEPLOYMENT}" >> $GITHUB_OUTPUT
+              echo "✅ Found previous deployment ID: ${PREVIOUS_DEPLOYMENT}"
+            else
+              echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+              echo "⚠️ Previous deployment ID file is empty"
+            fi
+          else
+            echo "previous_deployment_id=" >> $GITHUB_OUTPUT
+            echo "⚠️ Previous deployment ID file not found"
+          fi
+
+      - name: Rollback Production Deployment
+        if: steps.read-deployment-id.outputs.previous_deployment_id != ''
+        run: |
+          PREVIOUS_DEPLOYMENT="${{ steps.read-deployment-id.outputs.previous_deployment_id }}"
           WORKER_NAME="little-shape-647c"
           
-          echo "🔄 Health check failed! Rolling back to previous deployment: ${PREVIOUS_DEPLOYMENT}"
+          echo "🔄 Rolling back production deployment to: ${PREVIOUS_DEPLOYMENT}"
           echo "Worker Name: ${WORKER_NAME}"
           
           # Perform rollback
@@ -636,47 +713,20 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_SEND_METRICS: false
 
-      - name: Fail if health check failed and no rollback possible
-        if: steps.health-check.outputs.health_status != 'passed' && steps.previous-deployment.outputs.previous_deployment_id == ''
+      - name: Create rollback summary
+        if: steps.read-deployment-id.outputs.previous_deployment_id != ''
         run: |
-          echo "❌ Health check failed and no previous deployment to rollback to!"
-          exit 1
-
-      - name: Deployment summary
-        run: |
-          PRODUCTION_URL="${{ steps.production-url.outputs.url }}"
-          WORKER_NAME="${{ steps.production-url.outputs.worker-name }}"
-          HEALTH_STATUS="${{ steps.health-check.outputs.health_status }}"
-          PREVIOUS_DEPLOYMENT="${{ steps.previous-deployment.outputs.previous_deployment_id }}"
-          WAS_ROLLED_BACK="$([ "$HEALTH_STATUS" != "passed" ] && [ -n "$PREVIOUS_DEPLOYMENT" ] && echo "true" || echo "false")"
+          PREVIOUS_DEPLOYMENT="${{ steps.read-deployment-id.outputs.previous_deployment_id }}"
+          WORKER_NAME="little-shape-647c"
+          PRODUCTION_URL="https://${WORKER_NAME}.shyaamdps.workers.dev"
           
-          if [ "$WAS_ROLLED_BACK" = "true" ]; then
-            echo "## ⚠️ Production Deployment - Rolled Back" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "❌ **Deployment failed health check and was automatically rolled back.**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- **Worker Name:** \`${WORKER_NAME}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Production URL:** ${PRODUCTION_URL}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Health Check:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
-            echo "- **Rolled back to:** \`${PREVIOUS_DEPLOYMENT}\`" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🔄 **Worker has been rolled back to the previous working deployment.**" >> $GITHUB_STEP_SUMMARY
-          elif [ "$HEALTH_STATUS" = "passed" ]; then
-            echo "## 🚀 Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Deployment successful!**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- **Worker Name:** \`${WORKER_NAME}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Production URL:** ${PRODUCTION_URL}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Health Check:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "🌐 **Worker is live and healthy!**" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ❌ Production Deployment Failed" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "❌ **Deployment failed health check and no previous deployment to rollback to.**" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "- **Worker Name:** \`${WORKER_NAME}\`" >> $GITHUB_STEP_SUMMARY
-            echo "- **Production URL:** ${PRODUCTION_URL}" >> $GITHUB_STEP_SUMMARY
-            echo "- **Health Check:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "## ⚠️ Production Deployment - Rolled Back" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "❌ **Deployment failed health check and was automatically rolled back.**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Worker Name:** \`${WORKER_NAME}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Production URL:** ${PRODUCTION_URL}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health Check:** ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rolled back to:** \`${PREVIOUS_DEPLOYMENT}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔄 **Worker has been rolled back to the previous working deployment.**" >> $GITHUB_STEP_SUMMARY
