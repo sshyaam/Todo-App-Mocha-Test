@@ -116,7 +116,7 @@ function isValidDescription(description) {
  * Health check endpoint
  * @returns {Response} JSON response with ok: true
  */
-router.get("/a", () => json({ ok: true }));
+router.get("/", () => json({ ok: true }));
 
 /**
  * Get all todos
