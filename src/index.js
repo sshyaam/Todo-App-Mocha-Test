@@ -102,7 +102,7 @@ function isValidDescription(description) {
  * @param {string} status - Status value
  * @returns {string} Display name for status
  */
-function getStatusDisplayName(status) {
+/*function getStatusDisplayName(status) {
   const statusMap = {
     "incomplete": "Not Started",
     "in-progress": "In Progress",
@@ -110,7 +110,7 @@ function getStatusDisplayName(status) {
     "archived": "Archived"
   };
   return statusMap[status] || status;
-}
+}*/
 
 /**
  * Health check endpoint
