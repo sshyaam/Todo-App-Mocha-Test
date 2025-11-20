@@ -265,8 +265,8 @@ jobs:
 
       - name: Wait for deployment to propagate
         run: |
-          echo "⏳ Waiting 10 seconds for deployment to propagate..."
-          sleep 10
+          echo "⏳ Waiting 3 seconds for deployment to propagate..."
+          sleep 3
 
       - name: Health check - Root endpoint
         id: health-check
@@ -276,7 +276,7 @@ jobs:
           echo "🔍 Checking health endpoint: ${PREVIEW_URL}/"
           
           MAX_RETRIES=3
-          RETRY_DELAY=5
+          RETRY_DELAY=3
           HEALTH_STATUS="failed"
           
           for i in $(seq 1 $MAX_RETRIES); do
@@ -586,8 +586,8 @@ jobs:
 
       - name: Wait for deployment to propagate
         run: |
-          echo "⏳ Waiting 10 seconds for deployment to propagate..."
-          sleep 5
+          echo "⏳ Waiting 3 seconds for deployment to propagate..."
+          sleep 3
 
       - name: Health check - Root endpoint
         id: health-check
@@ -597,7 +597,7 @@ jobs:
           echo "🔍 Checking health endpoint: ${PRODUCTION_URL}/"
           
           MAX_RETRIES=3
-          RETRY_DELAY=5
+          RETRY_DELAY=3
           HEALTH_STATUS="failed"
           
           for i in $(seq 1 $MAX_RETRIES); do
