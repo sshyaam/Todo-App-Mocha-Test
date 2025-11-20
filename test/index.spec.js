@@ -29,7 +29,7 @@ describe("🧩 Cloudflare D1 ToDo API (Mocked)", () => {
 
   // --- ROOT ---
   it("GET / → should return ok true", async () => {
-    const req = new Request("http://localhost/a", { method: "GET" });
+    const req = new Request("http://localhost/", { method: "GET" });
     const res = await app.fetch(req, env);
     const body = await res.json();
 
