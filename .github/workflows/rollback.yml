@@ -1,0 +1,105 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: 'Commit SHA to rollback to (leave empty for previous commit)'
+        required: false
+        type: string
+      confirm_rollback:
+        description: 'Type "ROLLBACK" to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    name: Rollback to Previous Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event.inputs.confirm_rollback == 'ROLLBACK'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.commit_sha || 'HEAD~1' }}
+          fetch-depth: 0
+
+      - name: Validate commit exists
+        id: validate
+        run: |
+          if [ -n "${{ github.event.inputs.commit_sha }}" ]; then
+            COMMIT_SHA="${{ github.event.inputs.commit_sha }}"
+            if ! git cat-file -e "$COMMIT_SHA^{commit}" 2>/dev/null; then
+              echo "❌ Commit $COMMIT_SHA not found in repository"
+              exit 1
+            fi
+            echo "✅ Commit $COMMIT_SHA found"
+            echo "commit=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          else
+            PREVIOUS_COMMIT=$(git rev-parse HEAD~1)
+            echo "Using previous commit: $PREVIOUS_COMMIT"
+            echo "commit=$PREVIOUS_COMMIT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Show commit info
+        run: |
+          COMMIT_SHA="${{ steps.validate.outputs.commit }}"
+          echo "📋 Rolling back to commit: $COMMIT_SHA"
+          echo "📝 Commit message:"
+          git log -1 --format="%B" "$COMMIT_SHA"
+          echo ""
+          echo "👤 Author: $(git log -1 --format='%an <%ae>' "$COMMIT_SHA")"
+          echo "📅 Date: $(git log -1 --format='%ad' --date=format:'%Y-%m-%d %H:%M:%S' "$COMMIT_SHA")"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify Wrangler installation
+        run: npx wrangler --version
+
+      - name: Rollback Deployment
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+          workingDirectory: .
+
+      - name: Create rollback summary
+        run: |
+          COMMIT_SHA="${{ steps.validate.outputs.commit }}"
+          COMMIT_MSG=$(git log -1 --format="%s" "$COMMIT_SHA")
+          COMMIT_AUTHOR=$(git log -1 --format="%an" "$COMMIT_SHA")
+          COMMIT_DATE=$(git log -1 --format="%ad" --date=format:'%Y-%m-%d %H:%M:%S' "$COMMIT_SHA")
+          
+          echo "## 🔄 Rollback Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Successfully rolled back to:**" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`$COMMIT_SHA\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Message:** $COMMIT_MSG" >> $GITHUB_STEP_SUMMARY
+          echo "- **Author:** $COMMIT_AUTHOR" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date:** $COMMIT_DATE" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 Worker has been deployed with the rollback version." >> $GITHUB_STEP_SUMMARY
+
+  validation:
+    name: Validate Rollback Confirmation
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm_rollback != 'ROLLBACK'
+    steps:
+      - name: Fail if not confirmed
+        run: |
+          echo "❌ Rollback not confirmed. You must type 'ROLLBACK' to proceed."
+          echo "Received: '${{ github.event.inputs.confirm_rollback }}'"
+          exit 1
+
