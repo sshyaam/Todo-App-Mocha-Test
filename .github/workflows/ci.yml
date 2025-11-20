@@ -287,6 +287,53 @@ jobs:
           echo "worker-name=${WORKER_NAME}" >> $GITHUB_OUTPUT
           echo "Preview URL: ${PREVIEW_URL}"
 
+      - name: Wait for deployment to propagate
+        run: |
+          echo "⏳ Waiting 10 seconds for deployment to propagate..."
+          sleep 10
+
+      - name: Health check - Root endpoint
+        id: health-check
+        run: |
+          PREVIEW_URL="${{ steps.preview-url.outputs.url }}"
+          echo "🔍 Checking health endpoint: ${PREVIEW_URL}/"
+          
+          MAX_RETRIES=5
+          RETRY_DELAY=5
+          HEALTH_STATUS="failed"
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES..."
+            RESPONSE=$(curl -s -w "\n%{http_code}" "${PREVIEW_URL}/" || echo -e "\n000")
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              if echo "$BODY" | grep -q '"ok"'; then
+                echo "✅ Health check passed!"
+                echo "Response: $BODY"
+                HEALTH_STATUS="passed"
+                break
+              else
+                echo "⚠️ Got 200 but response doesn't contain 'ok': $BODY"
+              fi
+            else
+              echo "❌ Health check failed with HTTP $HTTP_CODE"
+              echo "Response: $BODY"
+            fi
+            
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Retrying in ${RETRY_DELAY} seconds..."
+              sleep $RETRY_DELAY
+            fi
+          done
+          
+          echo "health_status=${HEALTH_STATUS}" >> $GITHUB_OUTPUT
+          if [ "$HEALTH_STATUS" != "passed" ]; then
+            echo "❌ Health check failed after $MAX_RETRIES attempts"
+            exit 1
+          fi
+          
       - name: Comment PR with Preview URL
         uses: actions/github-script@v7
         if: github.event_name == 'pull_request'
@@ -309,12 +356,28 @@ jobs:
             );
             
             const workerName = '${{ steps.preview-url.outputs.worker-name }}';
+            const healthStatus = '${{ steps.health-check.outputs.health_status }}';
+            const apiTests = '${{ steps.api-test.outputs.api_tests }}';
+            
+            let healthBadge = '❌';
+            let healthMessage = 'Health check failed';
+            if (healthStatus === 'passed') {
+              healthBadge = '✅';
+              healthMessage = 'Health check passed';
+            }
+            
+            let apiTestMessage = '';
+            if (apiTests === 'completed') {
+              apiTestMessage = '\n\n**API Tests:** ✅ Completed';
+            }
+            
             const commentBody = `## 🚀 Preview Deployment
             
             Your changes have been deployed to a preview Worker!
             
             **Worker Name:** \`${workerName}\`
             **Preview URL:** ${previewUrl}
+            **Health Check:** ${healthBadge} ${healthMessage}${apiTestMessage}
             
             > **Note:** The preview URL may take a few minutes to become active. You can also find it in your [Cloudflare Workers dashboard](https://dash.cloudflare.com/).
             

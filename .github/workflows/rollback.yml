@@ -32,12 +32,6 @@ jobs:
       - name: Verify Wrangler installation
         run: npx wrangler --version
 
-      - name: List recent deployments
-        id: list-deployments
-        run: |
-          echo "📋 Recent deployments:"
-          npx wrangler deployments list || echo "Note: Could not list deployments. You can find deployment IDs in Cloudflare dashboard."
-
       - name: Rollback Deployment
         id: rollback
         uses: cloudflare/wrangler-action@v3
